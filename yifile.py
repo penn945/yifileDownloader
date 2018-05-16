@@ -134,12 +134,13 @@ class yifile:
                 'file_id': self.__fileid,
                 'verycode': verycode
             }
+            postcontent = "action=" +str(self.__fileaction) + "&file_id=" + str(self.__fileid) + "&verycode=" + verycode
             postheader = {
                 'accept': 'text/plain, */*; q=0.01',
                 # 'accept-encoding': 'gzip, deflate, br',
                 # 'accept-language': 'en-US,en;q=0.8,zh-TW;q=0.6,zh;q=0.4,zh-CN;q=0.2',
                 'accept-language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7,zh-CN;q=0.6',
-                'content-length': 47,
+                'content-length': len(postcontent),
                 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
                 # 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36' +
                 #              ' (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
@@ -167,8 +168,12 @@ class yifile:
         print("start continue downloading " + self.filename + "\t" + yifile.formatFileSize(self.downloadsize) + "\\" + yifile.formatFileSize(self.filesize))
         if self.downloadsize == self.filesize:
             if self.filepath.find('.downloading') >= 0:
-                os.rename(self.filepath, self.downloadfolder + "\\" + self.filename)
-                self.filepath = self.downloadfolder + "\\" + self.filename
+                try:
+                    os.rename(self.filepath, self.downloadfolder + "\\" + self.filename)
+                    self.filepath = self.downloadfolder + "\\" + self.filename
+                except FileExistsError:
+                    os.rename(self.filepath, self.filepath.replace(".downloading", ""))
+                    self.filepath = self.filepath.replace(".downloading", "")
             self.status = 2
             print("\n download finished " + self.filename + "\t" + yifile.formatFileSize(
                 self.downloadsize) + "\\" + yifile.formatFileSize(self.filesize))
@@ -179,7 +184,7 @@ class yifile:
             opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.__cookie))
             req = urllib.request.Request(url=self.filelink, data=None,
                                          headers=header, method='GET')
-            rep = opener.open(req)
+            rep = opener.open(req, timeout=30)
             file_size = rep.headers["Content-Length"]
             f = open(self.filepath, 'ab+')
             start = time.time()
@@ -204,10 +209,10 @@ class yifile:
                         uptcallback(self)
                         uptcounter = 0
                     speed = int(self.downloadsize / self.timecost)
-                    print("%s:%.2f%% %s/%s %s S %s/S     " % (
+                    print("%s:%.2f%% %s/%s %s S %s/S     %s" % (
                         self.filename, float(self.downloadsize) / float(self.filesize) * 100,
                         yifile.formatFileSize(self.downloadsize), yifile.formatFileSize(self.filesize),
-                        str(self.timecost), yifile.formatFileSize(speed)), end="\r")
+                        str(self.timecost), yifile.formatFileSize(speed), str(len(buffer))), end="\r")
                     uptcounter += 1
                 f.close()
                 self.status = 2
@@ -237,7 +242,7 @@ class yifile:
             headers = {}
             req = urllib.request.Request(url=self.filelink, data=None,
                                          headers=headers, method='GET')
-            rep = opener.open(req)
+            rep = opener.open(req, timeout=30)
             self.filesize = rep.headers["Content-Length"]
             if uptcallback:
                 uptcallback(self)

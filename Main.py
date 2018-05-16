@@ -55,7 +55,7 @@ def getyifileList(yifilelistfile):
             if info[0].find("https://www.yifile.com/file/") < 0:
                 continue
             else:
-                list.append(info[0])
+                list.append(info[0].replace('\n', ''))
             line = f.readline()
         f.close()
         return list
@@ -90,7 +90,7 @@ def getdatetime():
 
 def getdownloadinglist():
     list = []
-    sql = "select filepage, pagefilename, pagefilesize, filelink, filename, filesize, filepath, downloadsize, timecost,downloadfolder from filelist where status = 1 order by starttime "
+    sql = "select filepage, pagefilename, pagefilesize, filelink, filename, filesize, filepath, downloadsize, timecost,downloadfolder,status from filelist where status = 1 order by starttime "
     conn = sqlite3.connect(config.datasource)
     c = conn.execute(sql)
     rows = c.fetchall()
@@ -105,6 +105,7 @@ def getdownloadinglist():
         y.downloadsize = r[7]
         y.timecost = r[8]
         y.downloadfolder = r[9]
+        y.status = r[10]
         if os.path.exists(y.filepath):
             if y.downloadsize == os.path.getsize(y.filepath):
                 list.append(y)
@@ -124,6 +125,7 @@ def getdownloadinglist():
 def getdownloadlist():
     list = []
     sql = "select filepage from filelist where status = 0 order by starttime "
+    # sql = "select filepage from filelist where status < 2 order by status DESC , starttime "
     conn = sqlite3.connect(config.datasource)
     c = conn.execute(sql)
     rows = c.fetchall()
@@ -163,16 +165,24 @@ if __name__ == '__main__':
     list = getdownloadinglist()
     print("get downloading yifile data" + "\t" + str(list.__len__()))
     for l in list:
-        l.continueDownloading(uptcallback=uptyifileinfo)
+        while l.status != 2:
+            if l.status == 2:
+                break
+            elif l.status == -1:
+                l.continueDownloading(uptcallback=uptyifileinfo)
+            elif l.status == 1:
+                l.continueDownloading(uptcallback=uptyifileinfo)
+            else:
+                break
+        # l.continueDownloading(uptcallback=uptyifileinfo)
         uptyifileinfo(l)
     list = getdownloadlist()
     print("get new yifile data" + "\t" + str(list.__len__()))
     for l in list:
         y = yifile.yifile(l)
         y.downloadfolder = config.downloadpath
-        r = 2
-        while r == 2:
-            r = y.startdownload(uptcallback=uptyifileinfo)
+        r = 0
+        while r != 2:
             if r == 2:
                 break
             elif r == -1:
@@ -182,6 +192,8 @@ if __name__ == '__main__':
             elif r == 1:
                 print(r)
                 r = y.continueDownloading(uptcallback=uptyifileinfo)
+            elif r == 0:
+                r = y.startdownload(uptcallback=uptyifileinfo)
             else:
                 break
         # r = y.startdownload(uptcallback=uptyifileinfo)
